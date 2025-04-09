@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+groq
+chromadb
+pandas
+pypdf2
+requests
+tenacity
+langchain
+python-dotenv
+pysqlite3-binary
