@@ -1,36 +1,43 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from AdvancedSHLRecommender import SHLAdvancedRecommender
+from SHLAdvancedRecommender import SHLAdvancedRecommender
 import os
 import logging
 from contextlib import asynccontextmanager
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Global variable for recommender
 recommender = None
 
-# Modern lifespan handler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Modern lifespan handler for startup/shutdown events"""
     global recommender
     # Startup logic
     try:
-        logger.info("Initializing SHLRecommender...")
+        logger.info("🚀 Initializing SHLRecommender...")
         recommender = SHLAdvancedRecommender()
-        logger.info("Recommender initialized successfully")
+        logger.info("✅ Recommender initialized successfully")
     except Exception as e:
-        logger.error(f"Recommender initialization failed: {str(e)}")
+        logger.error(f"❌ Recommender initialization failed: {str(e)}")
         raise RuntimeError("Failed to initialize recommender")
-    yield
-    # Shutdown logic would go here
-    logger.info("Shutting down recommender")
+    
+    yield  # App runs here
+    
+    # Shutdown logic
+    logger.info("🛑 Shutting down recommender")
 
 app = FastAPI(
     title="SHL Solution Recommender API",
+    description="API for recommending SHL assessment solutions",
+    version="1.0.0",
     lifespan=lifespan
 )
 
@@ -43,20 +50,39 @@ app.add_middleware(
 )
 
 class QueryRequest(BaseModel):
-    text: str
-    language: str = "english"
-    job_level: str = "Entry Level"
-    completion_time: int
-    test_type: str
+    text: str = Field(..., min_length=3, example="Help with numerical reasoning test")
+    language: str = Field(default="english", example="english")
+    job_level: str = Field(default="Entry Level", example="Mid Level")
+    completion_time: int = Field(..., gt=0, example=30)
+    test_type: str = Field(..., example="Numerical Reasoning")
 
 class RecommendationResponse(BaseModel):
     response: str
     sources: list
 
-@app.post("/recommend", response_model=RecommendationResponse)
+@app.post(
+    "/recommend",
+    response_model=RecommendationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get SHL solution recommendations",
+    responses={
+        200: {"description": "Successful recommendation"},
+        500: {"description": "Internal server error"}
+    }
+)
 async def get_recommendation(request: QueryRequest):
+    """
+    Get personalized SHL solution recommendations based on:
+    - Test type
+    - Job level
+    - Time requirements
+    - Language preference
+    """
     if not recommender:
-        raise HTTPException(status_code=500, detail="Recommender not initialized")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Recommender service not ready"
+        )
     
     try:
         result = recommender.recommend_solution(
@@ -70,27 +96,50 @@ async def get_recommendation(request: QueryRequest):
         }
         
     except Exception as e:
-        logger.error(f"Recommendation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Recommendation error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error generating recommendation"
+        )
 
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="Check API health status",
+    response_description="API status information"
+)
 async def health_check():
+    """
+    Check if the API is running and ready to accept requests
+    """
     return {
-        "status": "healthy", 
+        "status": "healthy" if recommender else "initializing",
         "version": "1.0.0",
-        "recommender_ready": recommender is not None
+        "ready": recommender is not None
     }
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 async def root():
     return {
         "message": "SHL Recommender API is running",
         "endpoints": {
-            "recommend": "POST /recommend",
-            "health": "GET /health"
-        }
+            "recommend": {"method": "POST", "path": "/recommend"},
+            "health": {"method": "GET", "path": "/health"}
+        },
+        "documentation": "/docs"
     }
+
+def get_port() -> int:
+    """Get port from environment variable or default to 8000"""
+    return int(os.getenv("PORT", "8000"))
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    port = get_port()
+    logger.info(f"Starting server on port {port}")
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port,
+        log_config=None,  # Use default logging config
+        access_log=False  # Disable duplicate access logs
+    )
