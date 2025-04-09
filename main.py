@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from SHLAdvancedRecommender import SHLAdvancedRecommender
+from pydantic import BaseModel, Field
+from AdvancedSHLRecommender import SHLAdvancedRecommender
 import os
 import logging
 from contextlib import asynccontextmanager
