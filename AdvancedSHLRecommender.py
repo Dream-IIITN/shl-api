@@ -24,7 +24,7 @@ from groq import Groq
 from chromadb.utils import embedding_functions
 from chromadb.api.types import Where, WhereDocument
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from config import GROQ_API_KEY
+# from config import GROQ_API_KEY
 # Configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 CSV_PATH = "shl_solutions_clean.csv"
