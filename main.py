@@ -145,7 +145,7 @@
 #     )
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from .recommender import SHLAdvancedRecommender
+from AdvancedSHLRecommender import SHLAdvancedRecommender
 import logging
 
 app = FastAPI()
